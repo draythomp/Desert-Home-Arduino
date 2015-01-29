@@ -1,4 +1,3 @@
-// send a NI command to and get response from the XBee to get the name of the device
 void getDeviceParameters(){
   uint32_t addrl = 0;
   uint32_t addrh = 0;
@@ -196,7 +195,7 @@ void processXbee(char* inbuf, int len){
 //    Serial.println(Dbuf);
     return;
   }
-  if(strchr(buf, '\r') == 0){ // all packets have to have a cr at the end.
+  if(strchr(buf, '\r') == 0){ // all my packets have to have a cr at the end.
 //    strcpy_P(Dbuf,PSTR("partial packet, ignoring"));
 //    Serial.println(Dbuf);
     return;
@@ -206,17 +205,27 @@ void processXbee(char* inbuf, int len){
     data = strtok(buf, ",");  // skip to the actual t_time value
     data = strtok(0, ",");   // get the t_time variable
     temptime = atol(data);
-    if(abs(temptime - now()) >= 5){  // only if it matters
+    // below is the trick go subtracting unsigned values that may go negative. 
+    long difference = (long)(now() - temptime);
+    if(abs(difference) >= 5){  // only if it matters
       Serial.println("Setting Time");
+      Serial.print("Device time - actual time = ");
+      Serial.print(difference);
+      Serial.println(" seconds");
       setTime(temptime);
     }
   }
+  // Notice how I compare the first field of the incoming commmand to the
+  // device name I pulled from the XBee.  This keep this device from responding
+  // to commands meant for other devices accidentally.
   else if (strcmp(strtok(buf, ","), deviceName) == 0){ // see if the message is really for this device
     char *nxtToken = strtok(0, ",\r");
     if (strcmp(nxtToken, "Status") == 0){
       Serial.println(F("Sending Status"));
       sendStatusXbee();
     }
+    // The ability to broadcast is sometimes used to see what it going on
+    // using an XBee plugged into a laptop to monitor the data.
     else if (strcmp(nxtToken, "SendBroadcast") == 0){
       Serial.println(F("Switching Address to Broadcast"));
       Destination = Broadcast;     // set XBee destination address to Broadcast for now
@@ -224,6 +233,10 @@ void processXbee(char* inbuf, int len){
     else if (strcmp(nxtToken, "SendController") == 0){
       Serial.println(F("Switching Address to Controller"));
       Destination = Controller;     // set XBee destination address to Broadcast for now
+    }
+    else if (strcmp(nxtToken, "Reset") == 0){
+      Serial.println(F("Commanded to do a reset"));
+      resetFunc();  //This will reset the board and start all over.
     }
     else{
       Serial.print(deviceName);
