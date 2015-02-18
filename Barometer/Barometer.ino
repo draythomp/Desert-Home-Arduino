@@ -76,6 +76,7 @@ void setup() {
   Serial.print(F(" 0x"));
   print32Bits(Controller.getLsb());
   Serial.println();
+  Destination = Controller;     // set XBee destination
 
   bmp.begin();  // Initialize the barometer
   Serial.println(F("Setup Complete"));

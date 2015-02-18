@@ -232,7 +232,7 @@ void processXbee(char* inbuf, int len){
     }
     else if (strcmp(nxtToken, "SendController") == 0){
       Serial.println(F("Switching Address to Controller"));
-      Destination = Controller;     // set XBee destination address to Broadcast for now
+      Destination = Controller;     // set XBee destination
     }
     else if (strcmp(nxtToken, "Reset") == 0){
       Serial.println(F("Commanded to do a reset"));
