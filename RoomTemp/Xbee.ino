@@ -52,19 +52,45 @@ void getDeviceParameters(){
   Controller=XBeeAddress64(daddrh,daddrl);
 }
 
-uint8_t frameID = 12;
+// When the XBee is put to sleep, it takes a tiny bit of time to wake
+// back up. By sampling the CTS pin on the XBee you can tell it's ready 
+// to receive messages and commands
+boolean xbeeReadyWait(){
+  while (digitalRead(xbeeCTS) == SLEEP){} // just hang up and wait 
+  return(true);
+}
 
+// Since this device sleeps a lot, the network may have disappeared
+// from a power failure or something. This will send the AI command
+// to check the nework status. Use this before transmitting something
+// to assure the message has some possibility of succeeding.
+boolean networkWait(){
+  while(1){
+    if(sendAtCommand((uint8_t *)"AI")){
+      if (atResponse.getValue()[0] == 0){
+        return true;
+      }
+    }
+    Serial.println(F("Coordinator delay"));
+    delay(100);
+  }
+}
+
+uint8_t frameID = 12; // This is just a number that can be recognized for debugging
+// This will send an AT command and wait for a proper response.
+// When using AT commands, there's very little waiting around for a response
+// and you want this information before continuing.
 boolean sendAtCommand(uint8_t *command) {
   while(1){
     frameID++;
     atRequest.setFrameId(frameID);
     atRequest.setCommand(command);
     // Make sure the XBee is awake first
-    while (digitalRead(xbeeCTS) == SLEEP){} // just hang up and wait 
+    xbeeReadyWait();  // make sure the XBee is ready
     // send the command
     xbee.send(atRequest);
     //Serial.println("sent command");
-    // now wait a half second for the status response
+    // now wait up to a half second for the status response, may take much less
     if (xbee.readPacket(500)) {
       // got a response!
   
@@ -109,7 +135,9 @@ boolean sendAtCommand(uint8_t *command) {
 
 void sendXbee(const char* command){
   ZBTxRequest zbtx = ZBTxRequest(Destination, (uint8_t *)command, strlen(command));
-  while (digitalRead(xbeeCTS) == SLEEP){} // just hang up and wait 
+  xbeeReadyWait(); // Make sure the XBee is ready 
+  networkWait(); // Then check the network
+  zbtx.setFrameId(frameID);
   xbee.send(zbtx);
 }
 /*
@@ -122,11 +150,14 @@ void sendXbee(const char* command){
   eventual tuning of the on vs. sleep cycle.
 */
 void sendStatusXbee(){
-  sprintf(Dbuf, "{\"%s\":{\"temperature\":\"%s\",\"ptemperature\":\"%s\",\"voltage\":\"%s\"}}\n", 
+  xbeeReadyWait(); // Make sure the XBee is ready
+
+  sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"ptemperature\":\"%s\",\"voltage\":\"%s\"}}\n", 
+            deviceType, // this happens to be a temperature sensor
             deviceName, // originally read from the XBee
-            dtostrf(readTemp2(), 1, 1, t),
-            dtostrf(readTemp(), 1, 1, pt),
-            dtostrf(readVcc(), 1, 1, v) // This is a text conversion of a float
+            dtostrf(readTemp2(), 4, 1, t),
+            dtostrf(readTemp(), 4, 1, pt),
+            dtostrf(readVcc(), 5, 3, v) // This is a text conversion of a float
             );
   Serial.print(Dbuf); // notice this is only for the serial port
   sendXbee(Dbuf);     // out to the XBee
@@ -151,6 +182,9 @@ void checkXbee(){
         if (txStatus.getDeliveryStatus() != SUCCESS) { // This means the far end didn't get it
           Serial.print(F("Transmit error "));
           Serial.println(txStatus.getDeliveryStatus(), HEX);
+        }
+        else{
+          Serial.println(F("Transmit success"));
         }
       }
       else if(xbee.getResponse().getApiId() == ZB_IO_SAMPLE_RESPONSE){

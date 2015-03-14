@@ -19,8 +19,11 @@ char verNum[] = "Version 1";
 char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 
 // The awake and sleep times
-#define AWAKETIME 10000 
-#define SLEEPTIME 50000
+#define AWAKETIME 5000 
+#define SLEEPTIME 55000
+
+// The tmp36 pin
+#define tmpInput 0 // analog pin where reading is taken
 
 // These are the XBee control pins
 #define xbeeRxPin 4
@@ -38,6 +41,7 @@ AtCommandRequest atRequest = AtCommandRequest();
 AtCommandResponse atResponse = AtCommandResponse();
 ZBTxStatusResponse txStatus = ZBTxStatusResponse(); // to look at the tx response packet
 ModemStatusResponse modemStatus = ModemStatusResponse();
+char deviceType [] = "TempSensor";
 char deviceName [21];  // read fromm the XBee that is attached
 int deviceFirmware;
 XBeeAddress64 Broadcast = XBeeAddress64(0x00000000, 0x0000ffff);
@@ -109,45 +113,22 @@ void loop(){
   while (xbeeSerial.available() > 0)
     checkXbee();
   
-  // This allows emulation of an incoming XBee command from the serial console
-  // It's not a command interpreter, it's limited to the same command string as
-  // the XBee.  Can be used for testing
-  if(Serial.available()){  // 
-    char c = Serial.read();
-    if(requestIdx < sizeof(requestBuffer)){
-      requestBuffer[requestIdx] = c;
-      requestIdx++;
-    }
-    else{  //the buffer filled up with garbage
-      memset(requestBuffer,0,sizeof(requestBuffer));  //start off empty
-      requestIdx = 0; // and at the beginning
-      c = 0; // clear away the just-read character
-    }
-    if (c == '\r'){
-      requestBuffer[requestIdx] = '\0';
-//      Serial.println(requestBuffer);
-      // now do something with the request string
-      processXbee(requestBuffer,strlen(requestBuffer));
-      //start collecting the next request string
-      memset(requestBuffer,0,sizeof(requestBuffer));  //start off empty
-      requestIdx = 0; // and at the beginning
-    }
-  }
   if (millis() - savedmillis > AWAKETIME){
     Serial.print("was awake for ");
     Serial.println(millis() - savedmillis);
     delay(100); // delay to allow the characters to get out
     savedmillis = millis();
+    digitalWrite(xbeeSleepReq, SLEEP); // put the XBee to sleep
+    while (digitalRead(xbeeCTS) != SLEEP){} // Wait 'til it actually goes to sleep
     unsigned long timeSlept = 0;
     while (timeSlept < SLEEPTIME){
-      digitalWrite(xbeeSleepReq, SLEEP); // put the XBee to sleep
       Sleepy::loseSomeTime((unsigned int)1000);
       timeSlept = (millis() - savedmillis);
-      digitalWrite(xbeeSleepReq, AWAKE); // wake that boy up now
     }
     Serial.print("was asleep for ");
     Serial.println(millis() - savedmillis);
     savedmillis = millis();
+    digitalWrite(xbeeSleepReq, AWAKE); // wake that boy up now
     sendStatusXbee();
   }
 }

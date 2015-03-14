@@ -14,17 +14,33 @@ void showMem(){
   Serial.println(stackptr - heapptr);
 }
 /*
-Reading a tmp35 chip to get temperature.
-These devices are a little flakey. If the power has even a tiny
-bit of noise, they give erratic readings. So, filter them as
-best you can and then take several readings and average them.
+Reading a tmp36 chip to get temperature.
+These devices used to be really flakey until I discovered what I was
+doing wrong. Details are on my blog. Even after I got it to settle
+down and work correctly there was the occasional outlying reading.
+These weren't bad, just a degree or two up or down, and they're 
+easy to correct. I read the sensor 15 times, sort it, and then
+take the middle five readings and average them. This gets the odd
+occasional reading at one end or the other of the array and picking
+the middle settles the reading right down.
 */
+#define READSIZE 15
+
 float readTemp2(){
-  int total = 0;
-  for (int i = 0; i < 10; i++){
-    total += analogRead(0);
+  int readings[READSIZE];
+  int reading=0;
+  
+  for (int i = 0; i < READSIZE; i++){
+    readings[i] = analogRead(tmpInput);
   }
-  int reading = total / 10;
+  // Now sort the list to put the outliers at the beginning and end
+  sort(readings, READSIZE);
+  // grab the middle 5 and average them
+  for (int i = READSIZE / 2 - 2; i < READSIZE / 2 + 3 ; i++){
+    reading +=(readings[i]);
+  }
+  reading /= 5;
+  //reading = analogRead(tmpInput);
   float voltage =  (reading * 1.1) / 1024;
   float tempC = (voltage - 0.5) * 100;
   float tempF = (tempC * 9.0 / 5.0) + 32.0;
@@ -44,7 +60,7 @@ float readTemp(){
   result = ADCL;
   result |= ADCH<<8;
   result = (result - 125) * 1075;
-  return (result / 10000.0) * 1.8 + 32.0;
+  return (result / 10000.0) * 1.8 + 32.0; // I want degrees F
 }
 
 float readVcc(){
@@ -56,9 +72,20 @@ float readVcc(){
   resultVcc = ADCL;
   resultVcc |= ADCH<<8;
   resultVcc = 1126400L / resultVcc; // calculate AVcc in mV
-  return (resultVcc / 1000.0);
+  return (resultVcc / 1000.0); // but return volts
 }
 
+void sort(int a[], int size) {
+    for(int i=0; i<(size-1); i++) {
+        for(int o=0; o<(size-(i+1)); o++) {
+                if(a[o] > a[o+1]) {
+                    int t = a[o];
+                    a[o] = a[o+1];
+                    a[o+1] = t;
+                }
+        }
+    }
+}
 // Utility routines for printing packets when needed for debug
 void printByteData(uint8_t Byte){
   Serial.print((uint8_t)Byte >> 4, HEX);
