@@ -14,36 +14,15 @@ void showMem(){
   Serial.println(stackptr - heapptr);
 }
 /*
-Reading a tmp36 chip to get temperature.
-These devices used to be really flakey until I discovered what I was
-doing wrong. Details are on my blog. Even after I got it to settle
-down and work correctly there was the occasional outlying reading.
-These weren't bad, just a degree or two up or down, and they're 
-easy to correct. I read the sensor 15 times, sort it, and then
-take the middle five readings and average them. This gets the odd
-occasional reading at one end or the other of the array and picking
-the middle settles the reading right down.
+Yep, this is all there is to reading a 18B20 temperature sensor
+
+Well, of course there's two libraries involved with hundreds of lines of code to 
+support this, but who's counting?
 */
-#define READSIZE 15
 
 float readTemp2(){
-  int readings[READSIZE];
-  int reading=0;
-  
-  for (int i = 0; i < READSIZE; i++){
-    readings[i] = analogRead(tmpInput);
-  }
-  // Now sort the list to put the outliers at the beginning and end
-  sort(readings, READSIZE);
-  // grab the middle 5 and average them
-  for (int i = READSIZE / 2 - 2; i < READSIZE / 2 + 3 ; i++){
-    reading +=(readings[i]);
-  }
-  reading /= 5;
-  //reading = analogRead(tmpInput);
-  float voltage =  (reading * 1.1) / 1024;
-  float tempC = (voltage - 0.5) * 100;
-  float tempF = (tempC * 9.0 / 5.0) + 32.0;
+  sensors.requestTemperatures(); // Send the command to get temperatures
+  float tempF = sensors.getTempFByIndex(0);
   return(tempF);
 }
 /*
@@ -75,17 +54,6 @@ float readVcc(){
   return (resultVcc / 1000.0); // but return volts
 }
 
-void sort(int a[], int size) {
-    for(int i=0; i<(size-1); i++) {
-        for(int o=0; o<(size-(i+1)); o++) {
-                if(a[o] > a[o+1]) {
-                    int t = a[o];
-                    a[o] = a[o+1];
-                    a[o+1] = t;
-                }
-        }
-    }
-}
 // Utility routines for printing packets when needed for debug
 void printByteData(uint8_t Byte){
   Serial.print((uint8_t)Byte >> 4, HEX);

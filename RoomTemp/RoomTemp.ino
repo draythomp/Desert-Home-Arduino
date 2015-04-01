@@ -14,6 +14,8 @@
 #include <avr/pgmspace.h>
 #include <XBee.h>
 #include <JeeLib.h> // Low power functions library is here
+#include <OneWire.h>
+#include <DallasTemperature.h>
  
 char verNum[] = "Version 1";
 char t[10], v[10], pt[10];  // To store the strings for temp and pressure
@@ -23,7 +25,7 @@ char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 #define SLEEPTIME 55000
 
 // The tmp36 pin
-#define tmpInput 0 // analog pin where reading is taken
+#define OneWireBus 2 // analog pin where reading is taken
 
 // These are the XBee control pins
 #define xbeeRxPin 4
@@ -32,6 +34,11 @@ char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 #define xbeeSleepReq 7    // Set low to wake it up
 #define AWAKE LOW         // I can never rememmber it, so
 #define SLEEP HIGH        // I made these defines 
+
+/* Set up a oneWire instance to communicate with any OneWire device*/
+OneWire oneWire(OneWireBus);
+/* Tell Dallas Temperature Library to use oneWire Library */
+DallasTemperature sensors(&oneWire);
 
 // The various XBee messages and such
 SoftwareSerial xbeeSerial = SoftwareSerial(xbeeRxPin, xbeeTxPin);
@@ -95,6 +102,9 @@ void setup() {
   print32Bits(Controller.getLsb());
   Serial.println();
   Destination = Controller; // Setup to send to house controller
+  
+  sensors.begin();
+  
   savedmillis = millis();
   Serial.println(F("Setup Complete"));
 }
