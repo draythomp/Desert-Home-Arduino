@@ -20,38 +20,46 @@ Well, of course there's two libraries involved with hundreds of lines of code to
 support this, but who's counting?
 */
 
-float readTemp2(){
+float readTemp(){
   sensors.requestTemperatures(); // Send the command to get temperatures
   float tempF = sensors.getTempFByIndex(0);
   return(tempF);
 }
-/*
-These two routines use the atmega328 built in thermometer and VCC measurement techniques
-This way I can get the supply voltage to see how the batteries are doing, as well as grab
-the temperature of the chip.  It may need calibration, but it's free
-*/
-float readTemp(){
-  long result; // Read temperature sensor against 1.1V reference
-  ADMUX = _BV(REFS1) | _BV(REFS0) | _BV(MUX3);
-  delay(20); // Wait for Vref to settle - 2 was inadequate
-  ADCSRA |= _BV(ADSC); // Convert
-  while (bit_is_set(ADCSRA,ADSC));
-  result = ADCL;
-  result |= ADCH<<8;
-  result = (result - 125) * 1075;
-  return (result / 10000.0) * 1.8 + 32.0; // I want degrees F
-}
+
+#define READSIZE 15
 
 float readVcc(){
-  long resultVcc; // Read 1.1V reference against AVcc
-  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-  delay(20); // Wait for Vref to settle
-  ADCSRA |= _BV(ADSC); // Convert
-  while (bit_is_set(ADCSRA,ADSC));
-  resultVcc = ADCL;
-  resultVcc |= ADCH<<8;
-  resultVcc = 1126400L / resultVcc; // calculate AVcc in mV
-  return (resultVcc / 1000.0); // but return volts
+  int readings[READSIZE];
+  int reading=0;
+  
+  // First, give it a dealy to let the chip settle
+  // from being asleep
+  delay(10);
+  for (int i = 0; i < READSIZE; i++){
+    readings[i] = analogRead(voltagePin);
+  }
+  // Now sort the list to put the outliers at the beginning and end
+  sort(readings, READSIZE);
+  // grab the middle 5 and average them
+  for (int i = READSIZE / 2 - 2; i < READSIZE / 2 + 3 ; i++){
+    reading +=(readings[i]);
+  }
+  reading /= 5;
+  //reading = analogRead(tmpInput);
+  float voltage =  (reading * 1.1) / 1024;
+  return(voltage * 12.0);
+}
+
+void sort(int a[], int size) {
+  for(int i=0; i<(size-1); i++) {
+    for(int o=0; o<(size-(i+1)); o++) {
+      if(a[o] > a[o+1]) {
+        int t = a[o];
+        a[o] = a[o+1];
+        a[o+1] = t;
+      }
+    }
+  }
 }
 
 // Utility routines for printing packets when needed for debug

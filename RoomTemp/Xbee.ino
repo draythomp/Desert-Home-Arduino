@@ -155,8 +155,8 @@ void sendStatusXbee(){
   sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"ptemperature\":\"%s\",\"voltage\":\"%s\"}}\n", 
             deviceType, // this happens to be a temperature sensor
             deviceName, // originally read from the XBee
-            dtostrf(readTemp2(), 4, 1, t),
-            dtostrf(readTemp(), 4, 1, pt),
+            dtostrf(readTemp(), 4, 1, t),
+            "12.5",
             dtostrf(readVcc(), 5, 3, v) // This is a text conversion of a float
             );
   Serial.print(Dbuf); // notice this is only for the serial port

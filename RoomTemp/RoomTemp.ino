@@ -26,6 +26,7 @@ char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 
 // The tmp36 pin
 #define OneWireBus 2 // analog pin where reading is taken
+#define voltagePin A0
 
 // These are the XBee control pins
 #define xbeeRxPin 4
