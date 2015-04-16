@@ -2,6 +2,13 @@
 // I don't want to clutter up the main module with all these little 
 // items
 
+// This is for the remote control buttons
+void buttonThing(){
+  sleep_disable();
+  buttonPressed = true;
+  detachInterrupt(0);
+}
+
 void showMem(){
   uint8_t * heapptr, * stackptr;
   

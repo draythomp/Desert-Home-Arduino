@@ -152,11 +152,17 @@ void sendXbee(const char* command){
 void sendStatusXbee(){
   xbeeReadyWait(); // Make sure the XBee is ready
 
-  sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"ptemperature\":\"%s\",\"voltage\":\"%s\"}}\n", 
+  char *command;
+  if (buttonPressed)
+    command = "toggle";
+  else
+    command = "nothing";
+  buttonPressed = false;
+  sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"command\":\"%s\",\"voltage\":\"%s\"}}\n", 
             deviceType, // this happens to be a temperature sensor
             deviceName, // originally read from the XBee
             dtostrf(readTemp(), 4, 1, t),
-            "12.5",
+            command,
             dtostrf(readVcc(), 5, 3, v) // This is a text conversion of a float
             );
   Serial.print(Dbuf); // notice this is only for the serial port

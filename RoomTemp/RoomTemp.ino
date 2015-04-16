@@ -9,6 +9,7 @@
 //#include <Time.h>
 //#include <TimeAlarms.h>
 #include <SoftwareSerial.h>
+#include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -25,7 +26,7 @@ char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 #define SLEEPTIME 55000
 
 // The tmp36 pin
-#define OneWireBus 2 // analog pin where reading is taken
+#define OneWireBus 8 // analog pin where reading is taken
 #define voltagePin A0
 
 // These are the XBee control pins
@@ -69,6 +70,8 @@ ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup the watchdog
 
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
+boolean buttonPressed = false;
+
 void setup() {
   Serial.begin(9600);          //talk to it port
   Serial.print(F("Room Temperature Sensor "));
@@ -106,6 +109,10 @@ void setup() {
   
   sensors.begin();
   
+  pinMode(2, INPUT);
+  digitalWrite (2, HIGH);  // enable pull-up
+
+  
   savedmillis = millis();
   Serial.println(F("Setup Complete"));
 }
@@ -123,6 +130,9 @@ void loop(){
   // check for incoming XBee traffic
   while (xbeeSerial.available() > 0)
     checkXbee();
+    
+  if (buttonPressed == true) // the button may have been pressed while awake
+    sendStatusXbee();
   
   if (millis() - savedmillis > AWAKETIME){
     Serial.print("was awake for ");
@@ -132,13 +142,19 @@ void loop(){
     digitalWrite(xbeeSleepReq, SLEEP); // put the XBee to sleep
     while (digitalRead(xbeeCTS) != SLEEP){} // Wait 'til it actually goes to sleep
     unsigned long timeSlept = 0;
+    int result = 1;
     while (timeSlept < SLEEPTIME){
-      Sleepy::loseSomeTime((unsigned int)1000);
+      attachInterrupt(0, buttonThing, LOW);
+      result = Sleepy::loseSomeTime((unsigned int)7000);
+      if (result == 0) // this is something other than a watchdog
+        break;
       timeSlept = (millis() - savedmillis);
     }
     Serial.print("was asleep for ");
     Serial.println(millis() - savedmillis);
     savedmillis = millis();
+    if (result == 0)
+      Serial.println("Woke up on a button press");
     digitalWrite(xbeeSleepReq, AWAKE); // wake that boy up now
     sendStatusXbee();
   }
