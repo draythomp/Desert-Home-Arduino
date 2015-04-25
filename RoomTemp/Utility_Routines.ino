@@ -54,7 +54,7 @@ float readVcc(){
   reading /= 5;
   //reading = analogRead(tmpInput);
   float voltage =  (reading * 1.1) / 1024;
-  return(voltage * 12.0);
+  return(voltage * 10.9);
 }
 
 void sort(int a[], int size) {
