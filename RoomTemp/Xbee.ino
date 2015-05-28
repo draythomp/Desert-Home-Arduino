@@ -154,7 +154,7 @@ void sendStatusXbee(){
 
   char *command;
   if (buttonPressed)
-    command = "toggle";
+    command = "button1";
   else
     command = "nothing";
   buttonPressed = false;
