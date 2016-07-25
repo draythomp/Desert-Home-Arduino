@@ -22,7 +22,7 @@
 
 #define xbeeRxPin 2
 #define xbeeTxPin 3
-#define defrostRelayPin 4
+#define defrostRelayPin 5
 
 char verNum[] ="Freezer Timer Version 1 Init...";
 SoftwareSerial xbeeSerial = SoftwareSerial(xbeeRxPin, xbeeTxPin);

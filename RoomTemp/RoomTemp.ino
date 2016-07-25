@@ -16,7 +16,10 @@
 #include <XBee.h>
 #include <JeeLib.h> // Low power functions library is here
 #include <OneWire.h>
+
 #include <DallasTemperature.h>
+#include <Button.h>
+#include <ArduinoJson.h>
  
 char verNum[] = "Version 1";
 char t[10], v[10], pt[10];  // To store the strings for temp and pressure
@@ -24,6 +27,9 @@ char t[10], v[10], pt[10];  // To store the strings for temp and pressure
 // The awake and sleep times
 #define AWAKETIME 5000 
 #define SLEEPTIME 115000
+//#define SLEEPTIME 15
+unsigned long savedmillis = 0; // Use this to time the sleep cycles
+unsigned long actuallyAwake = 0; // because I extend the time with the button
 
 // The tmp36 pin
 #define OneWireBus 8 // analog pin where reading is taken
@@ -63,14 +69,15 @@ char requestBuffer [50]; // for requests coming from the serial port
 int requestIdx;
 
 char Dbuf[100]; // general purpose buffer
-unsigned long savedmillis = 0; // Use this to time the sleep cycles
 
 // Need this for the watchdog timer wake up operation
 ISR(WDT_vect) { Sleepy::watchdogEvent(); } // Setup the watchdog
 
 void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
-boolean buttonPressed = false;
+boolean buttonPressed = false; // for interrupt handling the button
+#define commandButton 2
+Button button1 = Button(commandButton, PULLUP);
 
 void setup() {
   Serial.begin(9600);          //talk to it port
@@ -131,12 +138,9 @@ void loop(){
   while (xbeeSerial.available() > 0)
     checkXbee();
     
-  if (buttonPressed == true) // the button may have been pressed while awake
-    sendStatusXbee();
-  
   if (millis() - savedmillis > AWAKETIME){
     Serial.print("was awake for ");
-    Serial.println(millis() - savedmillis);
+    Serial.println(millis() - actuallyAwake);
     delay(100); // delay to allow the characters to get out
     savedmillis = millis();
     digitalWrite(xbeeSleepReq, SLEEP); // put the XBee to sleep
@@ -153,9 +157,19 @@ void loop(){
     Serial.print("was asleep for ");
     Serial.println(millis() - savedmillis);
     savedmillis = millis();
+    actuallyAwake = millis();
     if (result == 0)
       Serial.println("Woke up on a button press");
     digitalWrite(xbeeSleepReq, AWAKE); // wake that boy up now
+    sendStatusXbee();
+  }
+  // Because I am impatient, I put this in to catch another button press
+  // before timing out and going to sleep. When I catch a second button press,
+  // I extend the time for another 5 seconds in case I do it again.
+  if (button1.uniquePress()){
+    Serial.println(F("Button was pressed again"));
+    savedmillis = millis(); // give it another 5 seconds
+    buttonPressed = 1;
     sendStatusXbee();
   }
 }

@@ -153,12 +153,14 @@ void sendStatusXbee(){
   xbeeReadyWait(); // Make sure the XBee is ready
 
   char *command;
+  StaticJsonBuffer<100> jsonBuffer;
+
   if (buttonPressed)
     command = "button1";
   else
     command = "nothing";
   buttonPressed = false;
-  sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"command\":\"%s\",\"voltage\":\"%s\"}}\n", 
+  /*sprintf(Dbuf, "{\"%s\":{\"name\":\"%s\",\"temperature\":\"%s\",\"command\":\"%s\",\"voltage\":\"%s\"}}\n", 
             deviceType, // this happens to be a temperature sensor
             deviceName, // originally read from the XBee
             dtostrf(readTemp(), 4, 1, t),
@@ -166,6 +168,17 @@ void sendStatusXbee(){
             dtostrf(readVcc(), 5, 3, v) // This is a text conversion of a float
             );
   Serial.print(Dbuf); // notice this is only for the serial port
+  sendXbee(Dbuf);     // out to the XBee
+  */
+  JsonObject &root =jsonBuffer.createObject();
+  JsonObject &data = root.createNestedObject(deviceType);
+  data["name"] = deviceName;
+  data["temperature"] = dtostrf(readTemp(), 4, 1, t);
+  data["command"] = command;
+  data["voltage"] = dtostrf(readVcc(), 5, 3, v);
+  root.printTo(Dbuf, sizeof(Dbuf));
+  strcat(Dbuf,"\n");
+  Serial.print(Dbuf);
   sendXbee(Dbuf);     // out to the XBee
   Serial.println("Message sent");
 }
