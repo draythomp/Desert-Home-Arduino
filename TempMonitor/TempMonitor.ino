@@ -1,17 +1,5 @@
-// To control the defrost cycle on my freezer.
+// To monitor the temperature of an appliance
 //
-// I have a freezer only, that means it doesn't have a refrigerator section
-// and I monitor it's power with a IRIS smart plug.  Over time I noticed that 
-// it was defrosting during the peak usage period of the day and causing a 
-// load that was costing me too much money.
-
-// this timer was created to read the time from my house clock and 
-// cause the defrost circuitry to fire during low use periods.
-// 
-// This is the second version.
-// Added a temperature sensor to the device and transmit the temp on every update
-// Also coded to close and open BOTH relays. This way I can share the load and maybe, 
-// get longer life out of the relays.
 //
 // Don't forget to change the version number (just after the defines)
 
@@ -27,8 +15,6 @@
 
 #define xbeeRxPin 2
 #define xbeeTxPin 3
-#define defrostRelay1Pin 4
-#define defrostRelay2Pin 5
 
 // The 18B20 is a onewire device *really three wires in this case pwr, ground, data)
 // So twwo libraries support it OneWire and DallasTemperature
@@ -49,7 +35,7 @@ XBeeAddress64 Broadcast = XBeeAddress64(0x00000000, 0x0000ffff);
 XBeeAddress64 Destination;  // This will hold the XBee address that the code currently sends to
 XBeeAddress64 ThisDevice;   // will fill in with the local XBee address
 
-char verNum[] ="Freezer Timer Version 2 Init...";
+char verNum[] ="Appliance Temp Monitor Version 1 Init...";
 SoftwareSerial xbeeSerial = SoftwareSerial(xbeeRxPin, xbeeTxPin);
 
 char Dbuf[50];
@@ -79,9 +65,7 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 // The timers for the freezer are below
 //
 void initTimers(){
-  Alarm.alarmRepeat(8,15,0, defrosterOn);  //turn on defroster (code will turn itself off)
-  Alarm.alarmRepeat(20,15,0, defrosterOn); // run it twice a day in non-peak periods
-  Alarm.timerRepeat(2*60,freezerReport);      //the "I'm alive message"
+  Alarm.timerRepeat(2*60,Report);      //the "I'm alive message"
 }
 // These two timers will blink the light to tell me it's working
 void aliveLedOn(){
@@ -94,45 +78,11 @@ void aliveLedOff(){
   Alarm.timerOnce(2, aliveLedOn);
 }
 
-AlarmID_t offTimer = dtNBR_ALARMS;  // just making sure it can't be allocated initially
-
-void defrosterOn(){
-  if (digitalRead(defrostRelay1Pin) == HIGH){
-    freezerReport();
-    return;  // it's already on, just return
-  }
-  digitalWrite(defrostRelay1Pin, HIGH); // turn on the defroster
-  digitalWrite(defrostRelay2Pin, HIGH); // use both relays
-  if(Alarm.isAllocated(offTimer)){ //if there is already a timer running, stop it.
-    Alarm.free(offTimer);
-    offTimer = dtNBR_ALARMS;       // to indicate there is no timer active
-  }
-  offTimer = Alarm.timerOnce(30*60, defrosterOff);  // automatically turn it off after timeout
-  Serial.println("Defroster On");
-  freezerReport();
-}
-
-void defrosterOff(){
-  if (Alarm.isAllocated(offTimer)){ //If there is an off timer running, stop it.
-    Alarm.free(offTimer);
-    offTimer = dtNBR_ALARMS;
-  }
-  // doesn't hurt anything to turn it off multiple times.
-  digitalWrite(defrostRelay1Pin, LOW); // turn the defroster off
-  digitalWrite(defrostRelay2Pin, LOW); // using both relays
-  Serial.println("Defroster Off");
-  freezerReport();
-}
-
 void setup() {
 
   Serial.begin(57600);          //talk to it port
   Serial.println(verNum);
 
-  pinMode(defrostRelay1Pin, OUTPUT);
-  pinMode(defrostRelay2Pin, OUTPUT);
-  digitalWrite(defrostRelay1Pin, LOW);
-  digitalWrite(defrostRelay2Pin, LOW);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
   analogReference(INTERNAL);   // hoping to improve the temp reading
@@ -179,7 +129,7 @@ void loop(){
       initTimers();
       alarmsSet = true;
       aliveLedOn(); // Light on the board when ready to run (blinks)
-      freezerReport(); // So I don't have to wait 2 minutes for it to report
+      Report(); // So I don't have to wait 2 minutes for it to report
       Serial.println("Timer set up");
     }
     Alarm.delay(0); // Just for the alarm routines

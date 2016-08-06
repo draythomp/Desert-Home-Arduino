@@ -122,9 +122,8 @@ void pass(){ // This is like the python pass statement. (look it up)
     return;
 }
 
-void freezerReport(){
-  sprintf(statusBuffer,"%s,%lu,%s,%s\r", deviceName, now(), digitalRead(defrostRelay1Pin) == HIGH ? "ON": "Off",
-    dtostrf(readTemp(), 4, 1, t));
+void Report(){
+  sprintf(statusBuffer,"%s,%lu,%s\r", deviceName, now(), dtostrf(readTemp(), 4, 1, t));
   Serial.print(statusBuffer);
   Serial.print("\n");
   
@@ -220,23 +219,15 @@ void processXbee(char* inbuf, int len){
     pass();
   }
   //
-  // Freezer control Strings
+  // control Strings
   //
-  else if (strstr_P(buf,PSTR("Freezer")) != 0){
-    if (strstr_P(buf,PSTR("DefrostOn")) != 0){
-      if ((digitalRead(defrostRelay1Pin)) == LOW){
-        defrosterOn();
-      }
-    }
-    else if (strstr_P(buf,PSTR("DefrostOff")) != 0){
-      defrosterOff();
-    }
-    else if (strstr_P(buf,PSTR("Report")) != 0){
-      freezerReport();
-      Serial.println(F("Freezer Report Sent"));
+  else if (strstr_P(buf,deviceName) != 0){
+    if (strstr_P(buf,PSTR("Report")) != 0){
+      Report();
+      Serial.println(F("Report Sent"));
     }
     else{
-      Serial.print(F("Invalid command to freezer - "));
+      Serial.print(F("Invalid command - "));
       Serial.println(buf);
     }
   }
