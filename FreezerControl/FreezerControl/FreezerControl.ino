@@ -8,7 +8,16 @@
 // this timer was created to read the time from my house clock and 
 // cause the defrost circuitry to fire during low use periods.
 // 
-// This is the first version.
+// This is the second version.
+// Added a temperature sensor to the device and transmit the temp on every update
+// Also coded to close and open BOTH relays. This way I can share the load and maybe, 
+// get longer life out of the relays.
+// 
+// I'm up to version 3 now
+// Paralleling the relays was a serious mistake. There's a blog post on the problems it
+// led to. This version supports the new board I had made to hold a high current relay 
+// module and a new defrost switch I added to that board. The switch will turn on add off
+// the defroster so I can see what is happening i the future.
 //
 // Don't forget to change the version number (just after the defines)
 
@@ -19,12 +28,34 @@
 #include <avr/pgmspace.h>
 #include <Button.h>
 #include <XBee.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define xbeeRxPin 2
 #define xbeeTxPin 3
-#define defrostRelayPin 5
+#define defrostRelay1Pin 4
+#define defrostRelay2Pin 5
 
-char verNum[] ="Freezer Timer Version 1 Init...";
+// The 18B20 is a onewire device *really three wires in this case pwr, ground, data)
+// So twwo libraries support it OneWire and DallasTemperature
+#define OneWireBus 8 // digital pin where one-wire reading is taken
+/* Set up a oneWire instance to communicate with any OneWire device*/
+OneWire oneWire(OneWireBus);
+/* Tell Dallas Temperature Library to use oneWire Library */
+DallasTemperature sensors(&oneWire);
+
+//Temporary variable use in float conversion
+char t[10], v[10];
+
+//XBee parameters
+char deviceName [21];  // read fromm the XBee that is attached
+// XBee addresses this device is interested in
+XBeeAddress64 Broadcast = XBeeAddress64(0x00000000, 0x0000ffff);
+//XBeeAddress64 HouseController= XBeeAddress64(0x0013A200, 0x406f7f8c); // For reference
+XBeeAddress64 Destination;  // This will hold the XBee address that the code currently sends to
+XBeeAddress64 ThisDevice;   // will fill in with the local XBee address
+
+char verNum[] ="Freezer Timer Version 3 Init...";
 SoftwareSerial xbeeSerial = SoftwareSerial(xbeeRxPin, xbeeTxPin);
 
 char Dbuf[50];
@@ -72,11 +103,12 @@ void aliveLedOff(){
 AlarmID_t offTimer = dtNBR_ALARMS;  // just making sure it can't be allocated initially
 
 void defrosterOn(){
-  if (digitalRead(defrostRelayPin) == HIGH){
+  if (digitalRead(defrostRelay1Pin) == HIGH){
     freezerReport();
     return;  // it's already on, just return
   }
-  digitalWrite(defrostRelayPin, HIGH); // turn on the defroster
+  digitalWrite(defrostRelay1Pin, HIGH); // turn on the defroster
+  digitalWrite(defrostRelay2Pin, HIGH); // use both relays
   if(Alarm.isAllocated(offTimer)){ //if there is already a timer running, stop it.
     Alarm.free(offTimer);
     offTimer = dtNBR_ALARMS;       // to indicate there is no timer active
@@ -92,23 +124,48 @@ void defrosterOff(){
     offTimer = dtNBR_ALARMS;
   }
   // doesn't hurt anything to turn it off multiple times.
-  digitalWrite(defrostRelayPin, LOW); // turn the pump off
+  digitalWrite(defrostRelay1Pin, LOW); // turn the defroster off
+  digitalWrite(defrostRelay2Pin, LOW); // using both relays
   Serial.println("Defroster Off");
   freezerReport();
 }
+
+boolean buttonPressed = false; // for interrupt handling the button
+#define commandButton 9
+Button button1 = Button(commandButton, PULLUP);
 
 void setup() {
 
   Serial.begin(57600);          //talk to it port
   Serial.println(verNum);
 
-  pinMode(defrostRelayPin, OUTPUT);
-  digitalWrite(defrostRelayPin, LOW);
+  pinMode(defrostRelay1Pin, OUTPUT);
+  pinMode(defrostRelay2Pin, OUTPUT);
+  digitalWrite(defrostRelay1Pin, LOW);
+  digitalWrite(defrostRelay2Pin, LOW);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
+  analogReference(INTERNAL);   // hoping to improve the temp reading
+  sensors.begin();
  
   xbeeSerial.begin(9600);
   xbee.setSerial(xbeeSerial);
+  // Now get parameters from the XBee
+  getDeviceParameters();
+  Serial.print(F("This is device "));
+  Serial.println(deviceName);
+  Serial.print(F("This Device Address is 0x"));
+  print32Bits(ThisDevice.getMsb());
+  Serial.print(F(" 0x"));
+  print32Bits(ThisDevice.getLsb());
+  Serial.println();
+  Serial.print(F("Default Destination Device Address is 0x"));
+  print32Bits(Destination.getMsb());
+  Serial.print(F(" 0x"));
+  print32Bits(Destination.getLsb());
+  Serial.println();
+
+  
   strcpy_P(Dbuf,PSTR("Setup Complete"));
   Serial.println(Dbuf);
 //  setTime(1296565408L);  // debuging
@@ -137,7 +194,16 @@ void loop(){
     }
     Alarm.delay(0); // Just for the alarm routines
   }
-  
+  if (button1.uniquePress()){
+    Serial.println(F("Button was pressed"));
+    if (digitalRead(defrostRelay1Pin) == HIGH){ // The defroster is already on
+      defrosterOff();
+    }
+    else {
+      defrosterOn();
+    }
+  }
+
   if(Serial.available()){  // extremely primitive command decoder
     char c = Serial.read();
     switch(c){

@@ -1,8 +1,116 @@
-XBeeAddress64 Broadcast = XBeeAddress64(0x00000000, 0x0000ffff);
-XBeeAddress64 HouseController= XBeeAddress64(0x0013A200, 0x406f7f8c);
+// Get various parameters from the XBee
+AtCommandRequest atRequest = AtCommandRequest();
+AtCommandResponse atResponse = AtCommandResponse();
+
+void getDeviceParameters(){
+  uint32_t addrl = 0;
+  uint32_t addrh = 0;
+  uint32_t daddrl = 0;
+  uint32_t daddrh = 0;
+  
+  if(sendAtCommand((uint8_t *)"VR")){
+    if (atResponse.getValueLength() != 2)
+      Serial.println(F("Wrong length in VR response"));
+    if (atResponse.getValue()[1] != 0xA0)
+      Serial.println(F("Double check the XBee firmware version"));
+  }
+  if(sendAtCommand((uint8_t *)"AP")){
+    if (atResponse.getValue()[0] != 0x02)
+      Serial.println(F("Double Check the XBee AP setting, should be 2"));
+  }
+  if(sendAtCommand((uint8_t *)"AO")){
+    if (atResponse.getValue()[0] != 0)
+      Serial.println(F("Double Check the XBee A0 setting, should be 0"));
+  }
+  
+  if(sendAtCommand((uint8_t *)"NI")){
+    memset(deviceName, 0, sizeof(deviceName));
+    for (int i = 0; i < atResponse.getValueLength(); i++) {
+      deviceName[i] = (atResponse.getValue()[i]);
+    }
+    if (atResponse.getValueLength() == 0){
+      Serial.println(F("Couldn't find a device name"));
+    }
+  }
+  if(sendAtCommand((uint8_t *)"SH")){
+    for (int i = 0; i < atResponse.getValueLength(); i++) {
+      addrh = (addrh << 8) + atResponse.getValue()[i];
+    }
+  }
+  if(sendAtCommand((uint8_t *)"SL")){
+    for (int i = 0; i < atResponse.getValueLength(); i++) {
+      addrl = (addrl << 8) + atResponse.getValue()[i];
+    }
+  }
+  ThisDevice=XBeeAddress64(addrh,addrl);
+  if(sendAtCommand((uint8_t *)"DH")){
+    for (int i = 0; i < atResponse.getValueLength(); i++) {
+      daddrh = (daddrh << 8) + atResponse.getValue()[i];
+    }
+  }
+  if(sendAtCommand((uint8_t *)"DL")){
+    for (int i = 0; i < atResponse.getValueLength(); i++) {
+      daddrl = (daddrl << 8) + atResponse.getValue()[i];
+    }
+  }
+  Destination=XBeeAddress64(daddrh,daddrl);
+}
+
+uint8_t frameID = 12;
+
+boolean sendAtCommand(uint8_t *command) {
+  while(1){
+    frameID++;
+    atRequest.setFrameId(frameID);
+    atRequest.setCommand(command);
+    // send the command
+    xbee.send(atRequest);
+    //Serial.println("sent command");
+    // now wait up to 5 seconds for the status response
+    if (xbee.readPacket(5000)) {
+      // got a response!
+  
+      // should be an AT command response
+      if (xbee.getResponse().getApiId() == AT_COMMAND_RESPONSE) {
+        xbee.getResponse().getAtCommandResponse(atResponse);
+  
+        if (atResponse.isOk()) {
+          //Serial.println("response OK");
+          if (atResponse.getFrameId() == frameID){
+            //Serial.print("Frame ID matched: ");
+            //Serial.println(atResponse.getFrameId());
+            return(true);
+          }
+          else {
+            Serial.println("Frame Id did not match");
+          }
+        }
+        else {
+          Serial.print(F("Command returned error code: "));
+          Serial.println(atResponse.getStatus(), HEX);
+        }
+      }
+      else {
+        //Serial.print(F("Expected AT response but got "));
+        //Serial.println(xbee.getResponse().getApiId(), HEX);
+      }
+    } 
+    else {
+      // at command failed
+      if (xbee.getResponse().isError()) {
+        Serial.print(F("Error reading packet.  Error code: "));  
+        Serial.println(xbee.getResponse().getErrorCode());
+        return(false);
+      } 
+      else {
+        Serial.println(F("No response from radio"));  
+      }
+    }
+  }
+}
 
 void sendXbee(const char* command){
-  ZBTxRequest zbtx = ZBTxRequest(HouseController, (uint8_t *)command, strlen(command));
+  ZBTxRequest zbtx = ZBTxRequest(Destination, (uint8_t *)command, strlen(command));
   xbee.send(zbtx);
 }
 
@@ -15,9 +123,11 @@ void pass(){ // This is like the python pass statement. (look it up)
 }
 
 void freezerReport(){
-  sprintf(statusBuffer,"Freezer,%lu,%s\r", now(), digitalRead(defrostRelayPin) == HIGH ? "ON": "Off");
+  sprintf(statusBuffer,"%s,%lu,%s,%s\r", deviceName, now(), digitalRead(defrostRelay1Pin) == HIGH ? "ON": "Off",
+    dtostrf(readTemp(), 4, 1, t));
   Serial.print(statusBuffer);
   Serial.print("\n");
+  
   sendXbee(statusBuffer);
 }
 
@@ -114,7 +224,7 @@ void processXbee(char* inbuf, int len){
   //
   else if (strstr_P(buf,PSTR("Freezer")) != 0){
     if (strstr_P(buf,PSTR("DefrostOn")) != 0){
-      if ((digitalRead(defrostRelayPin)) == LOW){
+      if ((digitalRead(defrostRelay1Pin)) == LOW){
         defrosterOn();
       }
     }

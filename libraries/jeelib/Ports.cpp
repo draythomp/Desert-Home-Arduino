@@ -1120,7 +1120,8 @@ void Sleepy::watchdogInterrupts (char mode) {
 /// @see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
 void Sleepy::powerDown () {
     byte adcsraSave = ADCSRA;
-    ADCSRA &= ~ bit(ADEN); // disable the ADC
+    ADCSRA = 0;
+    //ADCSRA &= ~ bit(ADEN); // disable the ADC
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
         sleep_enable();
