@@ -3,6 +3,7 @@
 // Puts the Arduino and XBee to sleep after each send to conserve
 // battery power. On vs off time is set with the defines below.
 //
+// Program as Pro mini 5V 16MHz ATmega 328
 // For documentation see desert-home.com 
 //
 // Don't forget to change the version number (below includes)
