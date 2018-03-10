@@ -23,7 +23,7 @@
 #include <avr/pgmspace.h>
 #include <XBee.h>
 
-char verNum[] = "Version 4";
+char verNum[] = "Version 5";
 
 #define xbeeRxPin 2
 #define xbeeTxPin 3
@@ -52,8 +52,8 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 void initTimers(){
   Alarm.timerRepeat(5,sendStatusXbee);    // Garage report every three seconds
   Alarm.alarmRepeat(23,59,0, resetFunc);  // To stop the darn thing from hanging after several days.
-  Alarm.alarmRepeat(11,59,0, waterHeaterOff);
-  Alarm.alarmRepeat(19,1,0, waterHeaterOn);
+  Alarm.alarmRepeat(11,59,0, waterHeaterOff); // failsafe for shutting the water heater off during peak
+  Alarm.alarmRepeat(20,1,0, waterHeaterOn);   // usage periods. 
 }
 
 void setup() {

@@ -52,7 +52,7 @@
 #include <Button.h>
 #include "template.h"  //I had to add this because the compiler changed (it's in a tab)
 
-#define north  // comment this out for South Thermostat
+//#define north  // comment this out for South Thermostat
 #ifdef north 
 #define nameString "North"
 #else
@@ -128,11 +128,11 @@ int peakOverride = false;
 #define PEAKEND 1
 // entries are: peak start hour, peak end hour 
 const byte peakArray [7][2] = { {99,0},   //Sunday no peak period
-                          {12,19},    //Monday
-                          {12,19},    //Tuesday
-                          {12,19},    //Wednesday
-                          {12,19},    //Thursday
-                          {12,19},    //Friday
+                          {12,20},    //Monday
+                          {12,20},    //Tuesday
+                          {12,20},    //Wednesday
+                          {12,20},    //Thursday
+                          {12,20},    //Friday
                           {99,0} }; //Saturday no peak period
                           
 // This is so I can reset the board in software if it hang up 
